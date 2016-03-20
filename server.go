@@ -49,6 +49,9 @@ func (client *Client) read() {
 
 		if err != nil {
 			server.onDisconnectedCallback(client, err)
+			delete(server.clients, client.ID)
+			server.clientsCount--
+
 			break
 		}
 

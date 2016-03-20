@@ -2,6 +2,7 @@ package main
 
 import (
 	"time"
+	"strconv"
 )
 
 type entry struct {
@@ -25,12 +26,59 @@ func (cache *cache) exists(key string) bool {
 	return false
 }
 
+func (cache *cache) delete(key string) bool {
+	if cache.exists(key) {
+		delete(cache.entries, key)
+		cache.entriesCount--
+
+		return true
+	}
+
+	return false
+}
+
+func (cache *cache) setTTL(key string, TTL int) bool {
+	if e, ok := cache.entries[key]; ok {
+		e.ttl = TTL
+		e.lastTouchedAt = time.Now()
+		
+		return true
+	}
+
+	return false
+}
+
+func (cache *cache) getTTL(key string) int {
+	if e, ok := cache.entries[key]; ok {
+		if e.ttl == 0 {
+			return -1
+		}
+
+		return int((e.lastTouchedAt.Unix() + int64(e.ttl)) - time.Now().Unix())
+	}
+
+	return 0
+}
+
+func (cache *cache) incr(key string, delta ...int) *entry {
+	if !cache.exists(key) {
+		cache.set(key, []byte("0"))		
+	}
+
+	if len(delta) == 0 {
+		delta[0] = 1
+	}
+
+	value, _ := strconv.Atoi(string(cache.get(key).value))
+	cache.set(key, []byte(strconv.Itoa(value + delta[0])))
+
+	return cache.get(key)
+}
+
 func (cache *cache) get(key string) *entry {
 	if e, ok := cache.entries[key]; ok {
-		now := time.Now()
-
-		if e.ttl > 0 && (e.lastTouchedAt.Unix() + int64(e.ttl)) <= now.Unix() {
-			delete(cache.entries, key)
+		if e.ttl > 0 && cache.getTTL(key) <= 0 {
+			cache.delete(key)
 			return nil
 		}
 

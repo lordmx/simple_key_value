@@ -7,9 +7,8 @@ import (
 
 func main() {
 	server := NewServer()
-	cache := &cache{
-		entries: make(map[string]*entry),
-	}
+	cache := NewCache()
+	
 	commands := &commands{
 		cache: cache,
 	}
@@ -31,7 +30,7 @@ func main() {
 		} else {
 			server.sendToClient(client, []byte(r.value))
 		}
-		
+
 		server.sendToClient(client, []byte{'\n'})
 	})
 

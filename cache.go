@@ -2,6 +2,7 @@ package main
 
 import (
 	"time"
+	"log"
 	"strconv"
 )
 
@@ -16,6 +17,64 @@ type entry struct {
 type cache struct {
 	entriesCount int
 	entries map[string]*entry
+	freeList map[int][]*entry
+	freeListTs []int
+	ticker *time.Ticker
+	done chan bool 
+}
+
+func NewCache() *cache {
+	c := &cache{
+		entries: make(map[string]*entry),
+		freeList: make(map[int][]*entry),
+		done: make(chan bool),
+	}
+
+	c.ticker = time.NewTicker(1 * time.Second)
+	go c.expires()
+
+	return c
+}
+
+func (cache *cache) expires() bool {
+	for {
+		select {
+		case <- cache.ticker.C:
+			ts := int(time.Now().Unix())
+
+			if entries, ok := cache.freeList[ts]; ok {
+				for _, entry := range entries {
+					cache.delete(entry.key)
+				}
+
+				log.Printf("[%v] Deleted %d items", time.Now(), len(cache.freeList[ts]))
+				
+				delete(cache.freeList, ts)
+				
+			}
+
+			for i, value := range cache.freeListTs {
+				if value == ts {
+					break
+				}
+
+				cache.freeListTs = append(cache.freeListTs[:i], cache.freeListTs[i+1:]...)
+			}
+
+			if len(cache.freeListTs) > 1 {
+				cache.freeListTs = cache.freeListTs[1:]
+			} else {
+				cache.freeListTs = []int{}
+			}
+		case d := <- cache.done:
+			if d {
+				cache.ticker.Stop()
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (cache *cache) exists(key string) bool {
@@ -41,7 +100,14 @@ func (cache *cache) setTTL(key string, TTL int) bool {
 	if e, ok := cache.entries[key]; ok {
 		e.ttl = TTL
 		e.lastTouchedAt = time.Now()
-		
+
+		if TTL > 0 {
+			expires := int(e.lastTouchedAt.Unix()) + TTL
+
+			cache.freeList[expires] = append(cache.freeList[expires], e)
+			cache.freeListTs = append(cache.freeListTs, expires)
+		}
+
 		return true
 	}
 
@@ -97,7 +163,6 @@ func (cache *cache) set(key string, value []byte, ttl ...int) {
 		cache.entriesCount++
 
 		e = &entry{
-			id: cache.entriesCount,
 			key: key,
 		}
 
@@ -105,9 +170,14 @@ func (cache *cache) set(key string, value []byte, ttl ...int) {
 	}
 
 	e.value = value
-	e.lastTouchedAt = time.Now()
 
-	if len(ttl) > 0 && ttl[0] > 0 {
-		e.ttl = ttl[0]
+	if len(ttl) == 0 {
+		ttl[0] = 0
 	}
+
+	if ttl[0] < 0 {
+		ttl[0] = 0
+	}
+
+	cache.setTTL(key, ttl[0])
 }

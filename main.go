@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	server := NewServer("0.0.0.0:1234")
+	server := NewServer()
 	cache := &cache{
 		entries: make(map[string]*entry),
 	}
@@ -35,5 +35,5 @@ func main() {
 		server.sendToClient(client, []byte{'\n'})
 	})
 
-	server.Listen()
+	server.Listen("0.0.0.0:1234")
 }

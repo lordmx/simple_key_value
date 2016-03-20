@@ -14,7 +14,6 @@ type Client struct {
 }
 
 type Server struct {
-	host string
 	clients map[int]*Client
 	clientsCount int
 	joins chan net.Conn
@@ -29,9 +28,8 @@ type message struct {
 	data []byte
 }
 
-func NewServer(host string) *Server {
+func NewServer() *Server {
 	return &Server{
-		host: host,
 		clients: make(map[int]*Client),
 		joins: make(chan net.Conn),
 		income: make(chan *message),
@@ -60,7 +58,7 @@ func (client *Client) read() {
 	client.Close()
 }
 
-func (server *Server) Listen() error {
+func (server *Server) Listen(host string) error {
 	go func() {
 		for {
 			select {
@@ -75,7 +73,7 @@ func (server *Server) Listen() error {
 		}
 	}()
 
-	listener, err := net.Listen("tcp", server.host)
+	listener, err := net.Listen("tcp", host)
 
 	if err != nil {
 		return err
@@ -83,7 +81,7 @@ func (server *Server) Listen() error {
 
 	defer listener.Close()
 
-	log.Printf("[%v] Begin listen on %s", time.Now(), server.host)
+	log.Printf("[%v] Begin listen on %s", time.Now(), host)
 
 	for {
 		conn, err := listener.Accept()

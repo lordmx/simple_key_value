@@ -1,16 +1,16 @@
 package main
 
 import (
-	"time"
-	"reflect"
 	"bytes"
+	"reflect"
 	"strconv"
+	"time"
 	"unicode"
 )
 
 type result struct {
 	value []byte
-	err error
+	err   error
 }
 
 type commands struct {
@@ -18,19 +18,12 @@ type commands struct {
 }
 
 type ProtocolError struct {
-
-}
-
-type WrongKeyError struct {
-
 }
 
 type WrongCommandError struct {
-
 }
 
 type EmptyCommandError struct {
-
 }
 
 type tokens [][]byte
@@ -58,17 +51,17 @@ func (c *commands) run(line []byte) *result {
 
 	command := bytes.ToLower(tokens[0])
 	first := bytes.ToUpper(command[0:1])
-    rest := command[1:]
-    command = bytes.Join([][]byte{first, rest}, nil)
+	rest := command[1:]
+	command = bytes.Join([][]byte{first, rest}, nil)
 
 	method := reflect.ValueOf(c).MethodByName("Command" + string(command))
 
 	if method.IsValid() {
 		return method.Call([]reflect.Value{reflect.ValueOf(tokens[1:])})[0].Interface().(*result)
-	} 
+	}
 
 	r.err = WrongCommandError{}
-	
+
 	return r
 }
 
@@ -105,6 +98,26 @@ func (c *commands) parse(line []byte) [][]byte {
 	}
 
 	return tokens
+}
+
+// Command "DEL key"
+func (c *commands) CommandDel(t tokens) *result {
+	r := &result{}
+
+	if len(t) < 1 {
+		r.err = ProtocolError{}
+		return r
+	}
+
+	key := string(t[0])
+
+	if c.cache.delete(key) {
+		r.value = []byte("true")
+	} else {
+		r.value = []byte("false")
+	}
+
+	return r
 }
 
 // Command "TOUCH key"
@@ -164,7 +177,7 @@ func (c *commands) CommandTtl(t tokens) *result {
 	}
 
 	key := string(t[0])
-	
+
 	if !c.cache.exists(key) {
 		r.value = []byte("nil")
 		return r

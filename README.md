@@ -1,4 +1,4 @@
-# Simple key-value storage
+# Simple in-memory key-value storage
 
 ## Commands
 

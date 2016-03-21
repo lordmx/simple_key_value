@@ -1,14 +1,23 @@
 package main
 
 import (
-	"time"
+	"flag"
 	"log"
+	"time"
 )
+
+var (
+	host = flag.String("host", "0.0.0.0:1234", "Host to listen")
+)
+
+func init() {
+	flag.Parse()
+}
 
 func main() {
 	server := NewServer()
 	cache := NewCache()
-	
+
 	commands := &commands{
 		cache: cache,
 	}
@@ -22,7 +31,12 @@ func main() {
 	})
 
 	server.OnMessage(func(client *Client, data []byte) {
-		log.Printf("[%v] Client sent message. ID: %d. Message: %s", time.Now(), client.ID, string(data))
+		log.Printf(
+			"[%v] Client sent message. ID: %d. Message: %s",
+			time.Now(),
+			client.ID,
+			string(data),
+		)
 		r := commands.run(data)
 
 		if r.err != nil {
@@ -34,5 +48,5 @@ func main() {
 		server.sendToClient(client, []byte{'\n'})
 	})
 
-	server.Listen("0.0.0.0:1234")
+	server.Listen(*host)
 }
